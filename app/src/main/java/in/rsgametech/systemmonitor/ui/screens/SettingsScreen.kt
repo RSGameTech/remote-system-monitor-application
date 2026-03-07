@@ -1,7 +1,8 @@
 package `in`.rsgametech.systemmonitor.ui.screens
 
-import android.widget.Toast
-import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -21,18 +22,15 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
-fun SettingsScreen(
-    onNavigateBack: () -> Unit
+fun SharedTransitionScope.SettingsScreen(
+    onNavigateBack: () -> Unit,
+    onNavigateToAppearance: () -> Unit,
+    animatedVisibilityScope: AnimatedVisibilityScope
 ) {
-    BackHandler { onNavigateBack() }
-
-    val context = LocalContext.current
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -60,10 +58,12 @@ fun SettingsScreen(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                 ),
                 modifier = Modifier
+                    .sharedBounds(
+                        sharedContentState = rememberSharedContentState("settings_to_appearance"),
+                        animatedVisibilityScope = animatedVisibilityScope
+                    )
                     .clip(RoundedCornerShape(16.dp))
-                    .clickable {
-                        Toast.makeText(context, "Coming soon", Toast.LENGTH_SHORT).show()
-                    }
+                    .clickable { onNavigateToAppearance() }
             )
         }
     }
