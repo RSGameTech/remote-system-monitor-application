@@ -1,0 +1,3 @@
+- Add forward and backward transition when going from main screen to settings screen and vice versa
+- Add Splash screen when app open. Follow guide on https://developer.android.com/develop/ui/views/launch/splash-screen
+- Add predictive back gesture. Follow this guide https://developer.android.com/guide/navigation/custom-back/predictive-back-gesture
