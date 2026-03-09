@@ -19,8 +19,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -30,6 +36,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -65,12 +72,46 @@ private fun segmentedShape(index: Int, lastIndex: Int): RoundedCornerShape = whe
 fun MainScreen(
     items: List<MonitorItem>,
     onAddItem: (MonitorItem) -> Unit,
+    onEditItem: (MonitorItem) -> Unit,
+    onDeleteItem: (MonitorItem) -> Unit,
     onRefresh: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToStats: (MonitorItem) -> Unit
 ) {
     var showAddForm by remember { mutableStateOf(false) }
+    var menuOpenForId by remember { mutableStateOf<Int?>(null) }
+    var deleteDialogItem by remember { mutableStateOf<MonitorItem?>(null) }
+    var editItem by remember { mutableStateOf<MonitorItem?>(null) }
 
-    BackHandler(enabled = showAddForm) { showAddForm = false }
+    val showOverlay = showAddForm || editItem != null
+
+    BackHandler(enabled = showOverlay) {
+        showAddForm = false
+        editItem = null
+    }
+
+    // Delete confirmation dialog
+    deleteDialogItem?.let { item ->
+        AlertDialog(
+            onDismissRequest = { deleteDialogItem = null },
+            icon = { Icon(Icons.Filled.Delete, contentDescription = null) },
+            title = { Text("Delete Server") },
+            text = { Text("Are you sure you want to delete \"${item.label}\"? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteItem(item)
+                    deleteDialogItem = null
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteDialogItem = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     SharedTransitionLayout {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -90,7 +131,7 @@ fun MainScreen(
                 },
                 floatingActionButton = {
                     AnimatedVisibility(
-                        visible = !showAddForm,
+                        visible = !showOverlay,
                         enter = fadeIn(),
                         exit = fadeOut()
                     ) {
@@ -135,10 +176,44 @@ fun MainScreen(
                                         contentDescription = null
                                     )
                                 },
+                                trailingContent = {
+                                    Box {
+                                        IconButton(onClick = { menuOpenForId = item.id }) {
+                                            Icon(Icons.Default.MoreVert, contentDescription = "Options")
+                                        }
+                                        DropdownMenu(
+                                            expanded = menuOpenForId == item.id,
+                                            onDismissRequest = { menuOpenForId = null }
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text("Edit") },
+                                                onClick = {
+                                                    menuOpenForId = null
+                                                    editItem = item
+                                                },
+                                                leadingIcon = {
+                                                    Icon(Icons.Filled.Edit, contentDescription = null)
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text("Delete") },
+                                                onClick = {
+                                                    menuOpenForId = null
+                                                    deleteDialogItem = item
+                                                },
+                                                leadingIcon = {
+                                                    Icon(Icons.Filled.Delete, contentDescription = null)
+                                                }
+                                            )
+                                        }
+                                    }
+                                },
                                 colors = ListItemDefaults.colors(
                                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                                 ),
-                                modifier = Modifier.clip(segmentedShape(index, items.lastIndex))
+                                modifier = Modifier
+                                    .clip(segmentedShape(index, items.lastIndex))
+                                    .clickable { onNavigateToStats(item) }
                             )
                         }
                     }
@@ -147,7 +222,7 @@ fun MainScreen(
 
             // Scrim
             AnimatedVisibility(
-                visible = showAddForm,
+                visible = showOverlay,
                 enter = fadeIn(),
                 exit = fadeOut()
             ) {
@@ -158,11 +233,14 @@ fun MainScreen(
                         .clickable(
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() }
-                        ) { showAddForm = false }
+                        ) {
+                            showAddForm = false
+                            editItem = null
+                        }
                 )
             }
 
-            // Form with container transform from FAB
+            // Add form with container transform from FAB
             AnimatedVisibility(
                 visible = showAddForm,
                 enter = fadeIn(),
@@ -180,16 +258,48 @@ fun MainScreen(
                             animatedVisibilityScope = this@AnimatedVisibility
                         ),
                         onDismiss = { showAddForm = false },
-                        onConfirm = { iconType, label, supportingText ->
+                        onConfirm = { iconType, label, address, apiKey ->
                             onAddItem(
                                 MonitorItem(
                                     id = items.size,
                                     iconType = iconType,
                                     label = label,
-                                    supportingText = supportingText
+                                    supportingText = address,
+                                    apiKey = apiKey
                                 )
                             )
                             showAddForm = false
+                        }
+                    )
+                }
+            }
+
+            // Edit form
+            editItem?.let { item ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AddItemForm(
+                        title = "Edit Device",
+                        confirmText = "Save",
+                        initialIconType = item.iconType,
+                        initialLabel = item.label,
+                        initialAddress = item.supportingText,
+                        initialApiKey = item.apiKey,
+                        onDismiss = { editItem = null },
+                        onConfirm = { iconType, label, address, apiKey ->
+                            onEditItem(
+                                item.copy(
+                                    iconType = iconType,
+                                    label = label,
+                                    supportingText = address,
+                                    apiKey = apiKey
+                                )
+                            )
+                            editItem = null
                         }
                     )
                 }

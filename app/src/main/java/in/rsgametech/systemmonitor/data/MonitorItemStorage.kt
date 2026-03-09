@@ -19,7 +19,8 @@ class MonitorItemStorage(context: Context) {
                 id = obj.getInt("id"),
                 iconType = IconType.valueOf(obj.getString("iconType")),
                 label = obj.getString("label"),
-                supportingText = obj.getString("supportingText")
+                supportingText = obj.getString("supportingText"),
+                apiKey = obj.optString("apiKey", "")
             )
         }
     }
@@ -32,6 +33,7 @@ class MonitorItemStorage(context: Context) {
                 put("iconType", item.iconType.name)
                 put("label", item.label)
                 put("supportingText", item.supportingText)
+                put("apiKey", item.apiKey)
             })
         }
         prefs.edit().putString(KEY_ITEMS, array.toString()).apply()

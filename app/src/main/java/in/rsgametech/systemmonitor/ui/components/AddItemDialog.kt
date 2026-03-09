@@ -26,12 +26,19 @@ import `in`.rsgametech.systemmonitor.model.IconType
 @Composable
 fun AddItemForm(
     modifier: Modifier = Modifier,
+    title: String = "Add Device",
+    confirmText: String = "Add",
+    initialIconType: IconType = IconType.LAPTOP,
+    initialLabel: String = "",
+    initialAddress: String = "",
+    initialApiKey: String = "",
     onDismiss: () -> Unit,
-    onConfirm: (IconType, String, String) -> Unit
+    onConfirm: (IconType, String, String, String) -> Unit
 ) {
-    var selectedIcon by remember { mutableStateOf(IconType.LAPTOP) }
-    var label by remember { mutableStateOf("") }
-    var supportingText by remember { mutableStateOf("") }
+    var selectedIcon by remember { mutableStateOf(initialIconType) }
+    var label by remember { mutableStateOf(initialLabel) }
+    var address by remember { mutableStateOf(initialAddress) }
+    var apiKey by remember { mutableStateOf(initialApiKey) }
 
     Card(
         modifier = modifier,
@@ -41,7 +48,7 @@ fun AddItemForm(
             modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Add Device", style = MaterialTheme.typography.headlineSmall)
+            Text(title, style = MaterialTheme.typography.headlineSmall)
 
             Text("Select Icon", style = MaterialTheme.typography.labelMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -61,15 +68,25 @@ fun AddItemForm(
             OutlinedTextField(
                 value = label,
                 onValueChange = { label = it },
-                label = { Text("Label") },
+                label = { Text("Name") },
+                placeholder = { Text("My Server") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
             OutlinedTextField(
-                value = supportingText,
-                onValueChange = { supportingText = it },
-                label = { Text("Supporting Text") },
+                value = address,
+                onValueChange = { address = it },
+                label = { Text("Address") },
+                placeholder = { Text("192.168.1.100:8080") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = apiKey,
+                onValueChange = { apiKey = it },
+                label = { Text("API Key") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -82,10 +99,10 @@ fun AddItemForm(
                     Text("Cancel")
                 }
                 TextButton(
-                    onClick = { onConfirm(selectedIcon, label, supportingText) },
-                    enabled = label.isNotBlank()
+                    onClick = { onConfirm(selectedIcon, label, address, apiKey) },
+                    enabled = label.isNotBlank() && address.isNotBlank()
                 ) {
-                    Text("Add")
+                    Text(confirmText)
                 }
             }
         }

@@ -9,7 +9,8 @@ data class MonitorItem(
     val id: Int,
     val iconType: IconType,
     val label: String,
-    val supportingText: String
+    val supportingText: String,
+    val apiKey: String = ""
 )
 
 enum class IconType(val displayName: String, val icon: ImageVector) {

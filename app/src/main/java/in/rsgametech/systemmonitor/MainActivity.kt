@@ -33,6 +33,7 @@ import `in`.rsgametech.systemmonitor.model.AppearanceSettings
 import `in`.rsgametech.systemmonitor.model.MonitorItem
 import `in`.rsgametech.systemmonitor.ui.screens.AppearanceScreen
 import `in`.rsgametech.systemmonitor.ui.screens.MainScreen
+import `in`.rsgametech.systemmonitor.ui.screens.ServerStatsScreen
 import `in`.rsgametech.systemmonitor.ui.screens.SettingsScreen
 import `in`.rsgametech.systemmonitor.ui.theme.RemoteSystemMonitorTheme
 import kotlin.coroutines.cancellation.CancellationException
@@ -40,15 +41,16 @@ import kotlin.coroutines.cancellation.CancellationException
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
-        super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+        window.isNavigationBarContrastEnforced = false
         setContent {
             RemoteSystemMonitorApp()
         }
     }
 }
 
-private enum class Screen { Main, Settings, Appearance }
+private enum class Screen { Main, Settings, Appearance, ServerStats }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -59,6 +61,7 @@ private fun RemoteSystemMonitorApp() {
     var currentScreen by remember { mutableStateOf(Screen.Main) }
     val items = remember { mutableStateListOf<MonitorItem>().apply { addAll(monitorStorage.load()) } }
     var appearance by remember { mutableStateOf(appearanceStorage.load()) }
+    var selectedServer by remember { mutableStateOf<MonitorItem?>(null) }
 
     val transitionState = remember { SeekableTransitionState(Screen.Main) }
     val transition = rememberTransition(transitionState, label = "screen_transition")
@@ -73,6 +76,7 @@ private fun RemoteSystemMonitorApp() {
         val previousScreen = when (currentScreen) {
             Screen.Appearance -> Screen.Settings
             Screen.Settings -> Screen.Main
+            Screen.ServerStats -> Screen.Main
             Screen.Main -> Screen.Main
         }
         try {
@@ -110,8 +114,23 @@ private fun RemoteSystemMonitorApp() {
                                 items.add(item)
                                 monitorStorage.save(items)
                             },
+                            onEditItem = { edited ->
+                                val idx = items.indexOfFirst { it.id == edited.id }
+                                if (idx >= 0) {
+                                    items[idx] = edited
+                                    monitorStorage.save(items)
+                                }
+                            },
+                            onDeleteItem = { item ->
+                                items.removeAll { it.id == item.id }
+                                monitorStorage.save(items)
+                            },
                             onRefresh = { },
-                            onNavigateToSettings = { currentScreen = Screen.Settings }
+                            onNavigateToSettings = { currentScreen = Screen.Settings },
+                            onNavigateToStats = { server ->
+                                selectedServer = server
+                                currentScreen = Screen.ServerStats
+                            }
                         )
                         Screen.Settings -> SettingsScreen(
                             onNavigateBack = { currentScreen = Screen.Main },
@@ -127,6 +146,14 @@ private fun RemoteSystemMonitorApp() {
                             onNavigateBack = { currentScreen = Screen.Settings },
                             animatedVisibilityScope = this@AnimatedContent
                         )
+                        Screen.ServerStats -> {
+                            selectedServer?.let { server ->
+                                ServerStatsScreen(
+                                    server = server,
+                                    onBack = { currentScreen = Screen.Main }
+                                )
+                            }
+                        }
                     }
                 }
             }
