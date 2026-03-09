@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -34,10 +33,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import `in`.rsgametech.systemmonitor.model.MonitorItem
 import `in`.rsgametech.systemmonitor.ui.components.AddItemForm
@@ -74,7 +75,6 @@ fun MainScreen(
     onAddItem: (MonitorItem) -> Unit,
     onEditItem: (MonitorItem) -> Unit,
     onDeleteItem: (MonitorItem) -> Unit,
-    onRefresh: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToStats: (MonitorItem) -> Unit
 ) {
@@ -84,6 +84,7 @@ fun MainScreen(
     var editItem by remember { mutableStateOf<MonitorItem?>(null) }
 
     val showOverlay = showAddForm || editItem != null
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     BackHandler(enabled = showOverlay) {
         showAddForm = false
@@ -116,17 +117,17 @@ fun MainScreen(
     SharedTransitionLayout {
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
+                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                 topBar = {
-                    TopAppBar(
+                    MediumTopAppBar(
                         title = { Text("Remote System Monitor") },
                         actions = {
-                            IconButton(onClick = onRefresh) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                            }
                             IconButton(onClick = onNavigateToSettings) {
                                 Icon(Icons.Default.Settings, contentDescription = "Settings")
                             }
-                        }
+                        },
+                        scrollBehavior = scrollBehavior,
+                        colors = TopAppBarDefaults.topAppBarColors()
                     )
                 },
                 floatingActionButton = {
@@ -162,8 +163,12 @@ fun MainScreen(
                     }
                 } else {
                     LazyColumn(
-                        modifier = Modifier.padding(innerPadding),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = innerPadding.calculateTopPadding(),
+                            bottom = innerPadding.calculateBottomPadding()
+                        ),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         itemsIndexed(items) { index, item ->

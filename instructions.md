@@ -1,3 +1,6 @@
-- Decrease the gap of the font selection buttons of column and row to 2dp for unified look
-- Don't let the font change in font button. It should show the font style as mentioned name in the button
-- Make the splash screen background to follow the device theme or settings theme
+- Add ipaddress in the topbar as subtitle
+- Remove container transform animation from the settings screen
+- Fix the gap between segmented list in the theme selection in appearance screen
+- Fix the dialog of the general settings
+- Add Appicon background in about screen
+-

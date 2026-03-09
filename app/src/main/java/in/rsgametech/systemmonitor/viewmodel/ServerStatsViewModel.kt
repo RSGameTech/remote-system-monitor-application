@@ -53,7 +53,13 @@ class ServerStatsViewModel : ViewModel() {
         val api = ApiClientFactory.create(url, apiKey)
         repository = MonitorRepository(api)
 
-        _state.update { it.copy(connectionState = ConnectionState.Connecting, isPolling = true) }
+        _state.update {
+            it.copy(
+                connectionState = ConnectionState.Connecting,
+                isPolling = true,
+                metrics = null
+            )
+        }
 
         pollingJob = viewModelScope.launch {
             while (isActive) {

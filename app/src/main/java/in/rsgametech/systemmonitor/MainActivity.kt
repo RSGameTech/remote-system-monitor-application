@@ -6,12 +6,8 @@ import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ExperimentalSharedTransitionApi
-import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.SeekableTransitionState
 import androidx.compose.animation.core.rememberTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -31,6 +27,7 @@ import `in`.rsgametech.systemmonitor.data.AppearanceStorage
 import `in`.rsgametech.systemmonitor.data.MonitorItemStorage
 import `in`.rsgametech.systemmonitor.model.AppearanceSettings
 import `in`.rsgametech.systemmonitor.model.MonitorItem
+import `in`.rsgametech.systemmonitor.ui.screens.AboutScreen
 import `in`.rsgametech.systemmonitor.ui.screens.AppearanceScreen
 import `in`.rsgametech.systemmonitor.ui.screens.MainScreen
 import `in`.rsgametech.systemmonitor.ui.screens.ServerStatsScreen
@@ -50,9 +47,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Screen { Main, Settings, Appearance, ServerStats }
+private enum class Screen { Main, Settings, Appearance, ServerStats, About }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun RemoteSystemMonitorApp() {
     val context = LocalContext.current
@@ -77,6 +73,7 @@ private fun RemoteSystemMonitorApp() {
             Screen.Appearance -> Screen.Settings
             Screen.Settings -> Screen.Main
             Screen.ServerStats -> Screen.Main
+            Screen.About -> Screen.Settings
             Screen.Main -> Screen.Main
         }
         try {
@@ -92,69 +89,68 @@ private fun RemoteSystemMonitorApp() {
 
     RemoteSystemMonitorTheme(settings = appearance) {
         Surface(modifier = Modifier.fillMaxSize()) {
-            SharedTransitionLayout {
-                transition.AnimatedContent(
-                    transitionSpec = {
-                        val isContainerTransform =
-                            (initialState == Screen.Settings && targetState == Screen.Appearance) ||
-                            (initialState == Screen.Appearance && targetState == Screen.Settings)
-                        if (isContainerTransform) {
-                            fadeIn() togetherWith fadeOut()
-                        } else if (targetState.ordinal > initialState.ordinal) {
-                            slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
-                        } else {
-                            slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+            transition.AnimatedContent(
+                transitionSpec = {
+                    if (targetState.ordinal > initialState.ordinal) {
+                        slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
+                    } else {
+                        slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+                    }
+                },
+            ) { screen ->
+                when (screen) {
+                    Screen.Main -> MainScreen(
+                        items = items,
+                        onAddItem = { item ->
+                            items.add(item)
+                            monitorStorage.save(items)
+                        },
+                        onEditItem = { edited ->
+                            val idx = items.indexOfFirst { it.id == edited.id }
+                            if (idx >= 0) {
+                                items[idx] = edited
+                                monitorStorage.save(items)
+                            }
+                        },
+                        onDeleteItem = { item ->
+                            items.removeAll { it.id == item.id }
+                            monitorStorage.save(items)
+                        },
+                        onNavigateToSettings = { currentScreen = Screen.Settings },
+                        onNavigateToStats = { server ->
+                            selectedServer = server
+                            currentScreen = Screen.ServerStats
                         }
-                    },
-                ) { screen ->
-                    when (screen) {
-                        Screen.Main -> MainScreen(
-                            items = items,
-                            onAddItem = { item ->
-                                items.add(item)
-                                monitorStorage.save(items)
-                            },
-                            onEditItem = { edited ->
-                                val idx = items.indexOfFirst { it.id == edited.id }
-                                if (idx >= 0) {
-                                    items[idx] = edited
-                                    monitorStorage.save(items)
-                                }
-                            },
-                            onDeleteItem = { item ->
-                                items.removeAll { it.id == item.id }
-                                monitorStorage.save(items)
-                            },
-                            onRefresh = { },
-                            onNavigateToSettings = { currentScreen = Screen.Settings },
-                            onNavigateToStats = { server ->
-                                selectedServer = server
-                                currentScreen = Screen.ServerStats
-                            }
-                        )
-                        Screen.Settings -> SettingsScreen(
-                            onNavigateBack = { currentScreen = Screen.Main },
-                            onNavigateToAppearance = { currentScreen = Screen.Appearance },
-                            animatedVisibilityScope = this@AnimatedContent
-                        )
-                        Screen.Appearance -> AppearanceScreen(
-                            settings = appearance,
-                            onSettingsChange = { newSettings ->
-                                appearance = newSettings
-                                appearanceStorage.save(newSettings)
-                            },
-                            onNavigateBack = { currentScreen = Screen.Settings },
-                            animatedVisibilityScope = this@AnimatedContent
-                        )
-                        Screen.ServerStats -> {
-                            selectedServer?.let { server ->
-                                ServerStatsScreen(
-                                    server = server,
-                                    onBack = { currentScreen = Screen.Main }
-                                )
-                            }
+                    )
+                    Screen.Settings -> SettingsScreen(
+                        onNavigateBack = { currentScreen = Screen.Main },
+                        onNavigateToAppearance = { currentScreen = Screen.Appearance },
+                        onNavigateToAbout = { currentScreen = Screen.About },
+                        settings = appearance,
+                        onSettingsChange = { newSettings ->
+                            appearance = newSettings
+                            appearanceStorage.save(newSettings)
+                        }
+                    )
+                    Screen.Appearance -> AppearanceScreen(
+                        settings = appearance,
+                        onSettingsChange = { newSettings ->
+                            appearance = newSettings
+                            appearanceStorage.save(newSettings)
+                        },
+                        onNavigateBack = { currentScreen = Screen.Settings }
+                    )
+                    Screen.ServerStats -> {
+                        selectedServer?.let { server ->
+                            ServerStatsScreen(
+                                server = server,
+                                onBack = { currentScreen = Screen.Main }
+                            )
                         }
                     }
+                    Screen.About -> AboutScreen(
+                        onNavigateBack = { currentScreen = Screen.Settings }
+                    )
                 }
             }
         }

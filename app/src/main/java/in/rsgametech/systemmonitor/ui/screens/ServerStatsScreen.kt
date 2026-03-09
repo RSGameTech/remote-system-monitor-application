@@ -1,5 +1,10 @@
 package `in`.rsgametech.systemmonitor.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,24 +20,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MediumTopAppBar
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -49,11 +51,12 @@ import `in`.rsgametech.systemmonitor.ui.components.DiskCard
 import `in`.rsgametech.systemmonitor.ui.components.GpuOverviewCard
 import `in`.rsgametech.systemmonitor.ui.components.MemoryOverviewCard
 import `in`.rsgametech.systemmonitor.ui.components.NetworkOverviewCard
+import `in`.rsgametech.systemmonitor.ui.components.ServerStatsSkeletonScreen
 import `in`.rsgametech.systemmonitor.ui.components.SystemInfoCard
 import `in`.rsgametech.systemmonitor.viewmodel.ConnectionState
 import `in`.rsgametech.systemmonitor.viewmodel.ServerStatsViewModel
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServerStatsScreen(
     server: MonitorItem,
@@ -61,6 +64,7 @@ fun ServerStatsScreen(
     viewModel: ServerStatsViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     LaunchedEffect(server.supportingText, server.apiKey) {
         viewModel.startMonitoring(server.supportingText, server.apiKey)
@@ -84,11 +88,12 @@ fun ServerStatsScreen(
     }
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            MediumTopAppBar(
                 title = {
                     Column {
-                        Text(server.label, style = MaterialTheme.typography.titleMedium)
+                        Text(server.label)
                         Text(
                             server.supportingText,
                             style = MaterialTheme.typography.bodySmall,
@@ -103,27 +108,20 @@ fun ServerStatsScreen(
                 },
                 actions = {
                     ConnectionStatusDot(state.connectionState)
-                }
+                },
+                scrollBehavior = scrollBehavior,
+                colors = TopAppBarDefaults.topAppBarColors()
             )
         }
     ) { padding ->
-        when {
-            state.metrics == null && state.connectionState is ConnectionState.Connecting -> {
-                Box(
-                    Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularWavyProgressIndicator()
-                        Spacer(Modifier.height(16.dp))
-                        Text("Connecting to ${server.supportingText}...")
-                    }
-                }
-            }
+        val isLoading = state.metrics == null && state.connectionState is ConnectionState.Connecting
 
+        when {
             state.metrics == null && state.connectionState is ConnectionState.Error -> {
                 Box(
-                    Modifier.fillMaxSize().padding(padding),
+                    Modifier
+                        .fillMaxSize()
+                        .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -142,30 +140,27 @@ fun ServerStatsScreen(
                 }
             }
 
-            state.metrics != null -> {
-                val pullState = rememberPullToRefreshState()
-
-                PullToRefreshBox(
-                    isRefreshing = state.isRefreshing,
-                    onRefresh = { viewModel.refresh() },
-                    state = pullState,
-                    modifier = Modifier.padding(padding),
-                    indicator = {
-                        PullToRefreshDefaults.IndicatorBox(
-                            state = pullState,
-                            isRefreshing = state.isRefreshing,
-                            modifier = Modifier.align(Alignment.TopCenter),
-                        ) {
-                            CircularWavyProgressIndicator(
-                                modifier = Modifier.size(16.dp)
+            else -> {
+                AnimatedContent(
+                    targetState = isLoading,
+                    transitionSpec = {
+                        fadeIn(tween(300)) togetherWith fadeOut(tween(200))
+                    },
+                    label = "statsContent"
+                ) { loading ->
+                    if (loading) {
+                        ServerStatsSkeletonScreen(
+                            modifier = Modifier.padding(padding)
+                        )
+                    } else {
+                        state.metrics?.let { metrics ->
+                            StatsContent(
+                                metrics = metrics,
+                                connectionState = state.connectionState,
+                                modifier = Modifier.padding(padding)
                             )
                         }
                     }
-                ) {
-                    StatsContent(
-                        metrics = state.metrics!!,
-                        connectionState = state.connectionState
-                    )
                 }
             }
         }
