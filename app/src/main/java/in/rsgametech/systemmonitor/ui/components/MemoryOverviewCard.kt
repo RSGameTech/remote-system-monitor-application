@@ -1,5 +1,6 @@
 package `in`.rsgametech.systemmonitor.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,8 +22,12 @@ import androidx.compose.ui.unit.dp
 import `in`.rsgametech.systemmonitor.data.model.MemoryInfo
 
 @Composable
-fun MemoryOverviewCard(memory: MemoryInfo) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+fun MemoryOverviewCard(memory: MemoryInfo, onClick: (() -> Unit)? = null) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
+    ) {
         Column(Modifier.padding(16.dp)) {
             Row(
                 Modifier.fillMaxWidth(),

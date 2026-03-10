@@ -1,9 +1,12 @@
 package `in`.rsgametech.systemmonitor.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +35,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -56,6 +62,8 @@ import `in`.rsgametech.systemmonitor.ui.components.SystemInfoCard
 import `in`.rsgametech.systemmonitor.viewmodel.ConnectionState
 import `in`.rsgametech.systemmonitor.viewmodel.ServerStatsViewModel
 
+private enum class StatsSubScreen { Overview, CpuDetail, MemoryDetail, GpuDetail, NetworkDetail }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ServerStatsScreen(
@@ -64,7 +72,7 @@ fun ServerStatsScreen(
     viewModel: ServerStatsViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    var subScreen by remember { mutableStateOf(StatsSubScreen.Overview) }
 
     LaunchedEffect(server.supportingText, server.apiKey) {
         viewModel.startMonitoring(server.supportingText, server.apiKey)
@@ -86,6 +94,72 @@ fun ServerStatsScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
+    BackHandler(enabled = subScreen != StatsSubScreen.Overview) {
+        subScreen = StatsSubScreen.Overview
+    }
+
+    val metrics = state.metrics
+
+    AnimatedContent(
+        targetState = subScreen,
+        transitionSpec = {
+            if (targetState.ordinal > initialState.ordinal) {
+                slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
+            } else {
+                slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+            }
+        },
+        label = "statsSubNav"
+    ) { screen ->
+        when (screen) {
+            StatsSubScreen.CpuDetail -> {
+                metrics?.cpu?.let { cpu ->
+                    CpuDetailScreen(cpu = cpu, onBack = { subScreen = StatsSubScreen.Overview })
+                }
+            }
+            StatsSubScreen.MemoryDetail -> {
+                metrics?.memory?.let { memory ->
+                    MemoryDetailScreen(memory = memory, onBack = { subScreen = StatsSubScreen.Overview })
+                }
+            }
+            StatsSubScreen.GpuDetail -> {
+                metrics?.gpu?.let { gpus ->
+                    GpuDetailScreen(gpus = gpus, onBack = { subScreen = StatsSubScreen.Overview })
+                }
+            }
+            StatsSubScreen.NetworkDetail -> {
+                metrics?.network?.let { network ->
+                    NetworkDetailScreen(network = network, onBack = { subScreen = StatsSubScreen.Overview })
+                }
+            }
+            StatsSubScreen.Overview -> {
+                StatsOverviewScreen(
+                    server = server,
+                    state = state,
+                    onBack = onBack,
+                    onCpuClick = { subScreen = StatsSubScreen.CpuDetail },
+                    onMemoryClick = { subScreen = StatsSubScreen.MemoryDetail },
+                    onGpuClick = { subScreen = StatsSubScreen.GpuDetail },
+                    onNetworkClick = { subScreen = StatsSubScreen.NetworkDetail }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StatsOverviewScreen(
+    server: MonitorItem,
+    state: `in`.rsgametech.systemmonitor.viewmodel.ServerStatsState,
+    onBack: () -> Unit,
+    onCpuClick: () -> Unit,
+    onMemoryClick: () -> Unit,
+    onGpuClick: () -> Unit,
+    onNetworkClick: () -> Unit
+) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -157,6 +231,10 @@ fun ServerStatsScreen(
                             StatsContent(
                                 metrics = metrics,
                                 connectionState = state.connectionState,
+                                onCpuClick = onCpuClick,
+                                onMemoryClick = onMemoryClick,
+                                onGpuClick = onGpuClick,
+                                onNetworkClick = onNetworkClick,
                                 modifier = Modifier.padding(padding)
                             )
                         }
@@ -171,6 +249,10 @@ fun ServerStatsScreen(
 private fun StatsContent(
     metrics: MetricsResponse,
     connectionState: ConnectionState,
+    onCpuClick: () -> Unit,
+    onMemoryClick: () -> Unit,
+    onGpuClick: () -> Unit,
+    onNetworkClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
@@ -184,16 +266,16 @@ private fun StatsContent(
 
         item { SystemInfoCard(metrics.system) }
 
-        item { CpuOverviewCard(metrics.cpu) }
+        item { CpuOverviewCard(metrics.cpu, onClick = onCpuClick) }
 
-        item { MemoryOverviewCard(metrics.memory) }
+        item { MemoryOverviewCard(metrics.memory, onClick = onMemoryClick) }
 
         if (metrics.gpu.isNotEmpty()) {
             item {
                 Text("GPU", style = MaterialTheme.typography.titleMedium)
             }
             items(metrics.gpu, key = { it.index }) { gpu ->
-                GpuOverviewCard(gpu)
+                GpuOverviewCard(gpu, onClick = onGpuClick)
             }
         }
 
@@ -204,7 +286,7 @@ private fun StatsContent(
             DiskCard(disk)
         }
 
-        item { NetworkOverviewCard(metrics.network) }
+        item { NetworkOverviewCard(metrics.network, onClick = onNetworkClick) }
 
         item {
             Text(

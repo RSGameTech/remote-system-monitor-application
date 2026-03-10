@@ -1,5 +1,6 @@
 package `in`.rsgametech.systemmonitor.data.repository
 
+import `in`.rsgametech.systemmonitor.data.model.HealthResponse
 import `in`.rsgametech.systemmonitor.data.model.MetricsResponse
 import `in`.rsgametech.systemmonitor.data.remote.MonitorApi
 
@@ -12,6 +13,12 @@ class MonitorRepository(private val api: MonitorApi) {
             response.code() == 401 -> throw AuthException("Invalid API key")
             else -> throw Exception("HTTP ${response.code()}: ${response.message()}")
         }
+    }
+
+    suspend fun fetchHealth(): Result<HealthResponse> = runCatching {
+        val response = api.getHealth()
+        if (response.isSuccessful) response.body() ?: throw Exception("Empty response")
+        else throw Exception("HTTP ${response.code()}")
     }
 }
 
