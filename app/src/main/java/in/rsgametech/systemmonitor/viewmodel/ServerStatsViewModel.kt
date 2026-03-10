@@ -3,15 +3,13 @@ package `in`.rsgametech.systemmonitor.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import `in`.rsgametech.systemmonitor.data.model.MetricsResponse
-import `in`.rsgametech.systemmonitor.data.remote.ApiClientFactory
-import `in`.rsgametech.systemmonitor.data.repository.AuthException
-import `in`.rsgametech.systemmonitor.data.repository.MonitorRepository
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import `in`.rsgametech.systemmonitor.data.remote.ClientWsMessage
+import `in`.rsgametech.systemmonitor.data.remote.MonitorWebSocketClient
+import `in`.rsgametech.systemmonitor.data.remote.ServerWsMessage
+import `in`.rsgametech.systemmonitor.data.remote.WsConnectionState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 sealed class ConnectionState {
@@ -26,7 +24,8 @@ data class ServerStatsState(
     val metrics: MetricsResponse? = null,
     val lastUpdated: String = "",
     val isPolling: Boolean = false,
-    val isRefreshing: Boolean = false
+    val isRefreshing: Boolean = false,
+    val pollIntervalMs: Long = 2000L
 )
 
 class ServerStatsViewModel : ViewModel() {
@@ -34,24 +33,13 @@ class ServerStatsViewModel : ViewModel() {
     private val _state = MutableStateFlow(ServerStatsState())
     val state = _state.asStateFlow()
 
-    private var pollingJob: Job? = null
-    private var repository: MonitorRepository? = null
-
-    companion object {
-        const val POLL_INTERVAL_MS = 2000L
-    }
+    private val wsClient = MonitorWebSocketClient()
+    private var serverUrl: String = ""
+    private var apiKey: String = ""
 
     fun startMonitoring(serverUrl: String, apiKey: String) {
-        pollingJob?.cancel()
-
-        val url = if (serverUrl.startsWith("http://") || serverUrl.startsWith("https://")) {
-            serverUrl
-        } else {
-            "http://$serverUrl"
-        }
-
-        val api = ApiClientFactory.create(url, apiKey)
-        repository = MonitorRepository(api)
+        this.serverUrl = serverUrl
+        this.apiKey = apiKey
 
         _state.update {
             it.copy(
@@ -61,49 +49,61 @@ class ServerStatsViewModel : ViewModel() {
             )
         }
 
-        pollingJob = viewModelScope.launch {
-            while (isActive) {
-                fetchAndUpdate()
-                delay(POLL_INTERVAL_MS)
-            }
-        }
-    }
+        wsClient.connect(serverUrl, apiKey)
 
-    fun refresh() {
         viewModelScope.launch {
-            _state.update { it.copy(isRefreshing = true) }
-            fetchAndUpdate()
-            _state.update { it.copy(isRefreshing = false) }
-        }
-    }
-
-    private suspend fun fetchAndUpdate() {
-        repository?.fetchMetrics()
-            ?.onSuccess { metrics ->
+            wsClient.connectionState.collect { wsState ->
                 _state.update {
                     it.copy(
-                        connectionState = ConnectionState.Connected,
-                        metrics = metrics,
-                        lastUpdated = metrics.timestamp
+                        connectionState = when (wsState) {
+                            is WsConnectionState.Connecting -> ConnectionState.Connecting
+                            is WsConnectionState.Connected -> ConnectionState.Connected
+                            is WsConnectionState.Disconnected -> ConnectionState.Error(wsState.reason ?: "Disconnected")
+                            is WsConnectionState.Failed -> ConnectionState.Error(wsState.error)
+                        }
                     )
                 }
             }
-            ?.onFailure { error ->
-                val msg = when (error) {
-                    is AuthException -> "Invalid API key"
-                    is java.net.ConnectException -> "Cannot reach server"
-                    is java.net.SocketTimeoutException -> "Connection timed out"
-                    else -> error.message ?: "Unknown error"
-                }
-                _state.update {
-                    it.copy(connectionState = ConnectionState.Error(msg))
+        }
+
+        viewModelScope.launch {
+            wsClient.messages.collect { message ->
+                when (message) {
+                    is ServerWsMessage.Metrics -> {
+                        _state.update {
+                            it.copy(
+                                connectionState = ConnectionState.Connected,
+                                metrics = message.data,
+                                lastUpdated = message.data.timestamp
+                            )
+                        }
+                    }
+                    is ServerWsMessage.Error -> {
+                        _state.update {
+                            it.copy(connectionState = ConnectionState.Error(message.message))
+                        }
+                    }
+                    else -> { /* pong, kill_result handled elsewhere */ }
                 }
             }
+        }
+    }
+
+    fun setPollInterval(intervalMs: Long) {
+        _state.update { it.copy(pollIntervalMs = intervalMs) }
+        wsClient.send(ClientWsMessage.SetInterval(intervalMs))
+    }
+
+    fun refresh() {
+        // WS pushes metrics automatically; reconnect if disconnected
+        val currentState = _state.value.connectionState
+        if (currentState is ConnectionState.Error || currentState is ConnectionState.Disconnected) {
+            startMonitoring(serverUrl, apiKey)
+        }
     }
 
     fun stopMonitoring() {
-        pollingJob?.cancel()
-        pollingJob = null
+        wsClient.disconnect()
         _state.update { it.copy(isPolling = false) }
     }
 

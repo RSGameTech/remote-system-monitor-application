@@ -31,6 +31,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import `in`.rsgametech.systemmonitor.data.model.GpuInfo
 import `in`.rsgametech.systemmonitor.ui.components.InfoRow
+import `in`.rsgametech.systemmonitor.ui.components.LocalTemperatureUnit
+import `in`.rsgametech.systemmonitor.ui.components.formatTemperature
 import `in`.rsgametech.systemmonitor.ui.components.usageColor
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,7 +112,10 @@ fun GpuDetailScreen(gpus: List<GpuInfo>, onBack: () -> Unit) {
 
                         // Stats
                         HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                        gpu.temperatureCelsius?.let { InfoRow("Temperature", "${it}\u00B0C") }
+                        gpu.temperatureCelsius?.let {
+                            val unit = LocalTemperatureUnit.current
+                            InfoRow("Temperature", formatTemperature(it, unit))
+                        }
                         gpu.fanSpeedPercent?.let { InfoRow("Fan Speed", "${it}%") }
                         gpu.powerDrawWatts?.let { InfoRow("Power Draw", "${it} W") }
                         gpu.clockSpeedMhz?.let { InfoRow("Clock Speed", "${it} MHz") }

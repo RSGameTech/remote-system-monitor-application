@@ -19,11 +19,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Tab
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,7 +65,7 @@ import `in`.rsgametech.systemmonitor.ui.components.SystemInfoCard
 import `in`.rsgametech.systemmonitor.viewmodel.ConnectionState
 import `in`.rsgametech.systemmonitor.viewmodel.ServerStatsViewModel
 
-private enum class StatsSubScreen { Overview, CpuDetail, MemoryDetail, GpuDetail, NetworkDetail }
+private enum class StatsSubScreen { Overview, CpuDetail, MemoryDetail, GpuDetail, NetworkDetail, Processes }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,7 +118,11 @@ fun ServerStatsScreen(
         when (screen) {
             StatsSubScreen.CpuDetail -> {
                 metrics?.cpu?.let { cpu ->
-                    CpuDetailScreen(cpu = cpu, onBack = { subScreen = StatsSubScreen.Overview })
+                    CpuDetailScreen(
+                        cpu = cpu,
+                        temperatures = metrics?.temperatures.orEmpty(),
+                        onBack = { subScreen = StatsSubScreen.Overview }
+                    )
                 }
             }
             StatsSubScreen.MemoryDetail -> {
@@ -133,6 +140,13 @@ fun ServerStatsScreen(
                     NetworkDetailScreen(network = network, onBack = { subScreen = StatsSubScreen.Overview })
                 }
             }
+            StatsSubScreen.Processes -> {
+                ProcessesScreen(
+                    serverUrl = server.supportingText,
+                    apiKey = server.apiKey,
+                    onBack = { subScreen = StatsSubScreen.Overview }
+                )
+            }
             StatsSubScreen.Overview -> {
                 StatsOverviewScreen(
                     server = server,
@@ -141,7 +155,9 @@ fun ServerStatsScreen(
                     onCpuClick = { subScreen = StatsSubScreen.CpuDetail },
                     onMemoryClick = { subScreen = StatsSubScreen.MemoryDetail },
                     onGpuClick = { subScreen = StatsSubScreen.GpuDetail },
-                    onNetworkClick = { subScreen = StatsSubScreen.NetworkDetail }
+                    onNetworkClick = { subScreen = StatsSubScreen.NetworkDetail },
+                    onProcessesClick = { subScreen = StatsSubScreen.Processes },
+                    onPollIntervalChange = { viewModel.setPollInterval(it) }
                 )
             }
         }
@@ -157,7 +173,9 @@ private fun StatsOverviewScreen(
     onCpuClick: () -> Unit,
     onMemoryClick: () -> Unit,
     onGpuClick: () -> Unit,
-    onNetworkClick: () -> Unit
+    onNetworkClick: () -> Unit,
+    onProcessesClick: () -> Unit,
+    onPollIntervalChange: (Long) -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -181,6 +199,9 @@ private fun StatsOverviewScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onProcessesClick) {
+                        Icon(Icons.Default.Tab, contentDescription = "Processes")
+                    }
                     ConnectionStatusDot(state.connectionState)
                 },
                 scrollBehavior = scrollBehavior,
@@ -231,6 +252,8 @@ private fun StatsOverviewScreen(
                             StatsContent(
                                 metrics = metrics,
                                 connectionState = state.connectionState,
+                                pollIntervalMs = state.pollIntervalMs,
+                                onPollIntervalChange = onPollIntervalChange,
                                 onCpuClick = onCpuClick,
                                 onMemoryClick = onMemoryClick,
                                 onGpuClick = onGpuClick,
@@ -249,12 +272,16 @@ private fun StatsOverviewScreen(
 private fun StatsContent(
     metrics: MetricsResponse,
     connectionState: ConnectionState,
+    pollIntervalMs: Long,
+    onPollIntervalChange: (Long) -> Unit,
     onCpuClick: () -> Unit,
     onMemoryClick: () -> Unit,
     onGpuClick: () -> Unit,
     onNetworkClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val refreshOptions = listOf(250L to "0.25s", 500L to "0.5s", 1000L to "1s", 2000L to "2s", 5000L to "5s")
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -264,9 +291,33 @@ private fun StatsContent(
             item { ConnectionErrorBanner(connectionState.message) }
         }
 
+        // Refresh timing chips
+        item {
+            Column {
+                Text(
+                    "Refresh Interval",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(refreshOptions.size) { index ->
+                        val (interval, label) = refreshOptions[index]
+                        FilterChip(
+                            selected = pollIntervalMs == interval,
+                            onClick = { onPollIntervalChange(interval) },
+                            label = { Text(label) }
+                        )
+                    }
+                }
+            }
+        }
+
         item { SystemInfoCard(metrics.system) }
 
-        item { CpuOverviewCard(metrics.cpu, onClick = onCpuClick) }
+        item { CpuOverviewCard(metrics.cpu, temperatures = metrics.temperatures, onClick = onCpuClick) }
 
         item { MemoryOverviewCard(metrics.memory, onClick = onMemoryClick) }
 

@@ -21,9 +21,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import `in`.rsgametech.systemmonitor.data.model.CpuInfo
+import `in`.rsgametech.systemmonitor.data.model.TemperatureInfo
 
 @Composable
-fun CpuOverviewCard(cpu: CpuInfo, onClick: (() -> Unit)? = null) {
+fun CpuOverviewCard(
+    cpu: CpuInfo,
+    temperatures: List<TemperatureInfo> = emptyList(),
+    onClick: (() -> Unit)? = null
+) {
+    val cpuTemp = temperatures
+        .firstOrNull { it.component.contains("CPU", ignoreCase = true) || it.component.contains("Package", ignoreCase = true) }
+        ?.temperatureCelsius
+        ?: cpu.temperatureCelsius
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -53,11 +62,25 @@ fun CpuOverviewCard(cpu: CpuInfo, onClick: (() -> Unit)? = null) {
 
             Spacer(Modifier.height(8.dp))
 
-            Text(
-                "${cpu.coreCountPhysical}C / ${cpu.coreCountLogical}T @ ${cpu.frequencyMhz} MHz",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "${cpu.coreCountPhysical}C / ${cpu.coreCountLogical}T @ ${cpu.frequencyMhz} MHz",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                cpuTemp?.let { temp ->
+                    val unit = LocalTemperatureUnit.current
+                    Text(
+                        formatTemperature(temp, unit),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = usageColor(temp)
+                    )
+                }
+            }
 
             Spacer(Modifier.height(12.dp))
 

@@ -1,6 +1,5 @@
-- Add ipaddress in the topbar as subtitle
-- Remove container transform animation from the settings screen
-- Fix the gap between segmented list in the theme selection in appearance screen
-- Fix the dialog of the general settings
-- Add Appicon background in about screen
--
+- Process is not stopping when pressed from android.
+- Use `arrow_downwards_alt` and `arrow_upwards_alt` on processes screen
+- Add predictive back on processes screen also.
+- Show CPU% and MEM% on secong line supporting text of the list
+- Add edge to edge display and make the bottom navigation background transparent on all screens.

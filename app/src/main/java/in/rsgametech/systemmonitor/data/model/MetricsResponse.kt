@@ -9,7 +9,8 @@ data class MetricsResponse(
     val memory: MemoryInfo,
     val gpu: List<GpuInfo>,
     val disk: List<DiskInfo>,
-    val network: NetworkInfo
+    val network: NetworkInfo,
+    val temperatures: List<TemperatureInfo> = emptyList()
 )
 
 data class SystemInfo(
@@ -28,7 +29,8 @@ data class CpuInfo(
     @SerializedName("core_count_logical") val coreCountLogical: Int,
     @SerializedName("core_count_physical") val coreCountPhysical: Int,
     @SerializedName("frequency_mhz") val frequencyMhz: Long,
-    @SerializedName("per_core_percent") val perCorePercent: List<Float>
+    @SerializedName("per_core_percent") val perCorePercent: List<Float>,
+    @SerializedName("temperature_celsius") val temperatureCelsius: Float? = null
 )
 
 data class MemoryInfo(
@@ -79,4 +81,11 @@ data class HealthResponse(
     val status: String,
     val timestamp: String,
     val version: String
+)
+
+data class TemperatureInfo(
+    val component: String,
+    @SerializedName("temperature_celsius") val temperatureCelsius: Float,
+    @SerializedName("max_celsius") val maxCelsius: Float? = null,
+    @SerializedName("critical_celsius") val criticalCelsius: Float? = null
 )

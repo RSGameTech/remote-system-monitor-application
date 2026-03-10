@@ -21,7 +21,7 @@ fun SystemInfoCard(system: SystemInfo) {
         Column(Modifier.padding(16.dp)) {
             Text(system.hostname, style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(4.dp))
-            InfoRow("OS", "${system.os} ${system.osVersion}")
+            InfoRow("OS", system.os)
             InfoRow("Kernel", system.kernelVersion)
             InfoRow("Arch", system.architecture)
             InfoRow("Uptime", system.uptime)

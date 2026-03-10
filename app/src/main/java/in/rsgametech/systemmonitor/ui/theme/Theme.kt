@@ -8,10 +8,12 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import `in`.rsgametech.systemmonitor.model.AppearanceSettings
 import `in`.rsgametech.systemmonitor.model.ThemeMode
+import `in`.rsgametech.systemmonitor.ui.components.LocalTemperatureUnit
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -63,7 +65,10 @@ fun RemoteSystemMonitorTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = typography,
-        content = content
-    )
+        typography = typography
+    ) {
+        CompositionLocalProvider(LocalTemperatureUnit provides settings.temperatureUnit) {
+            content()
+        }
+    }
 }

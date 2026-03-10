@@ -33,12 +33,19 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import `in`.rsgametech.systemmonitor.data.model.CpuInfo
+import `in`.rsgametech.systemmonitor.data.model.TemperatureInfo
 import `in`.rsgametech.systemmonitor.ui.components.InfoRow
+import `in`.rsgametech.systemmonitor.ui.components.LocalTemperatureUnit
+import `in`.rsgametech.systemmonitor.ui.components.formatTemperature
 import `in`.rsgametech.systemmonitor.ui.components.usageColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CpuDetailScreen(cpu: CpuInfo, onBack: () -> Unit) {
+fun CpuDetailScreen(
+    cpu: CpuInfo,
+    temperatures: List<TemperatureInfo> = emptyList(),
+    onBack: () -> Unit
+) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
@@ -80,6 +87,14 @@ fun CpuDetailScreen(cpu: CpuInfo, onBack: () -> Unit) {
                         InfoRow("Physical Cores", "${cpu.coreCountPhysical}")
                         InfoRow("Logical Cores", "${cpu.coreCountLogical}")
                         InfoRow("Frequency", "${cpu.frequencyMhz} MHz")
+                        val cpuTemp = temperatures
+                            .firstOrNull { it.component.contains("CPU", ignoreCase = true) || it.component.contains("Package", ignoreCase = true) }
+                            ?.temperatureCelsius
+                            ?: cpu.temperatureCelsius
+                        cpuTemp?.let { temp ->
+                            val unit = LocalTemperatureUnit.current
+                            InfoRow("Temperature", formatTemperature(temp, unit))
+                        }
                     }
                 }
             }

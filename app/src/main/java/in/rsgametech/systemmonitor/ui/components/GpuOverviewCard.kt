@@ -87,7 +87,8 @@ fun GpuOverviewCard(gpu: GpuInfo, onClick: (() -> Unit)? = null) {
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 gpu.temperatureCelsius?.let { temp ->
-                    GpuStatItem("Temp", "${temp}\u00B0C")
+                    val unit = LocalTemperatureUnit.current
+                    GpuStatItem("Temp", formatTemperature(temp, unit))
                 }
                 gpu.fanSpeedPercent?.let { fan ->
                     GpuStatItem("Fan", "${fan}%")
